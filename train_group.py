@@ -82,7 +82,7 @@ for subj in subjects:
         # montage (best-effort)
         try:
             mont = mne.channels.make_standard_montage('standard_1020')
-            raw.set_montage(mont, on_missing='warn')
+            raw.set_montage(mont)
         except Exception:
             pass
 
@@ -230,3 +230,4 @@ with open(meta_fname, "w") as f:
 
 print("Saved model and metadata. Done.")
 print("Important: When deploying online, match channel order, reference, filter (use causal filter if online), sliding window size matching feature_window, and use artifact['model'] pipeline to transform/predict.")
+
