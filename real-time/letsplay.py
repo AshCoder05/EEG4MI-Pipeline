@@ -186,47 +186,62 @@ def main_bci_live():
     inlet = StreamInlet(streams[0])
     print(f"✅ Connected to EEG stream: {streams[0].name()}")
     
-    # --- *** NEW: LSL CHANNEL MAPPING & VALIDATION (THE FIRST FIX) *** ---
+    # --- *** NEW: LSL CHANNEL MAPPING & VALIDATION *** ---
     
-    # This is the "secret handshake" map from your calibration script
+    # Updated Map: Handles 'EEG Fp1-Ref' AND 'Fp1-Ref' (just in case)
     channel_map = {
-        'EEG Fp1-Ref': 'Fp1', 'EEG Fp2-Ref': 'Fp2', 'EEG F7-Ref': 'F7',
-        'EEG F3-Ref': 'F3', 'EEG Fz-Ref': 'Fz', 'EEG F4-Ref': 'F4',
-        'EEG F8-Ref': 'F8', 
-        'EEG T3-Ref': 'T7', 'EEG C3-Ref': 'C3', 'EEG Cz-Ref': 'Cz', 'EEG C4-Ref': 'C4',
-        'EEG T4-Ref': 'T8', 'EEG T5-Ref': 'P7', 'EEG P3-Ref': 'P3', 'EEG Pz-Ref': 'Pz', 'EEG P4-Ref': 'P4',
-        'EEG T6-Ref': 'P8', 'EEG O1-Ref': 'O1', 'EEG O2-Ref': 'O2', 
-        'EEG A1-Ref': 'A1', 'EEG A2-Ref': 'A2'
+        'EEG Fp1-Ref': 'Fp1', 'Fp1-Ref': 'Fp1',
+        'EEG Fp2-Ref': 'Fp2', 'EEG F7-Ref': 'F7', 'EEG F3-Ref': 'F3', 
+        'EEG Fz-Ref': 'Fz',   'EEG F4-Ref': 'F4', 'EEG F8-Ref': 'F8', 
+        'EEG T3-Ref': 'T7',   'EEG C3-Ref': 'C3', 'EEG Cz-Ref': 'Cz', 
+        'EEG C4-Ref': 'C4',   'EEG T4-Ref': 'T8', 'EEG T5-Ref': 'P7', 
+        'EEG P3-Ref': 'P3',   'EEG Pz-Ref': 'Pz', 'EEG P4-Ref': 'P4',
+        'EEG T6-Ref': 'P8',   'EEG O1-Ref': 'O1', 'EEG O2-Ref': 'O2', 
+        'EEG A1-Ref': 'A1',   'EEG A2-Ref': 'A2'
     }
 
     info = inlet.info()
     ch_count_lsl = info.channel_count()
     
-    # Get all channel names from the LSL stream
+    # 1. Try to get names from LSL metadata
     chlist = info.desc().child("channels").child("channel")
     lsl_ch_names = []
     for i in range(ch_count_lsl):
         lsl_ch_names.append(chlist.child_value("label"))
         chlist = chlist.next_sibling()
 
-    # Rename them in our list using the map
-    lsl_ch_names_renamed = [channel_map.get(ch, ch) for ch in lsl_ch_names]
-    print(f"    Found {ch_count_lsl} LSL channels. Renamed list: {lsl_ch_names_renamed}")
+    # 2. FAIL-SAFE: If LSL names are empty (common with Mitsar), use Hardcoded list
+    # based on the EDF list you provided.
+    if not lsl_ch_names or lsl_ch_names[0] == '':
+        print(f"⚠️  WARNING: LSL stream provided empty channel names. Using hardcoded Mitsar layout.")
+        if ch_count_lsl >= 21:
+            lsl_ch_names = [
+                'EEG Fp1-Ref', 'EEG Fp2-Ref', 'EEG F7-Ref', 'EEG F3-Ref', 'EEG Fz-Ref', 
+                'EEG F4-Ref', 'EEG F8-Ref', 'EEG T3-Ref', 'EEG C3-Ref', 'EEG Cz-Ref', 
+                'EEG C4-Ref', 'EEG T4-Ref', 'EEG T5-Ref', 'EEG P3-Ref', 'EEG Pz-Ref', 
+                'EEG P4-Ref', 'EEG T6-Ref', 'EEG O1-Ref', 'EEG O2-Ref', 'EEG A1-Ref', 
+                'EEG A2-Ref', 'mtsrevent' 
+            ]
+            # Trim list if stream has fewer channels for some reason
+            lsl_ch_names = lsl_ch_names[:ch_count_lsl]
+        else:
+            print(f"❌ ERROR: Expected ~22 channels for Mitsar, found {ch_count_lsl}. Cannot apply hardcoded map.")
 
-    # Now, find the INDICES of our model channels in this renamed list
+    # 3. Rename them in our list using the map
+    lsl_ch_names_renamed = [channel_map.get(ch, ch) for ch in lsl_ch_names]
+    print(f"    LSL Channels (Mapped): {lsl_ch_names_renamed}")
+
+    # 4. Find the INDICES of our model channels
     try:
         model_indices = [lsl_ch_names_renamed.index(ch) for ch in model_channels]
     except ValueError as e:
-        # This error means a channel in 'model_channels' was not found in the LSL stream
         missing_ch = str(e).split("'")[1]
         print(f"❌ FATAL: Could not find model channel '{missing_ch}' in LSL stream.")
         print(f"    Model needs: {model_channels}")
-        print(f"    LSL stream (renamed) has: {lsl_ch_names_renamed}")
+        print(f"    LSL has: {lsl_ch_names_renamed}")
         return
 
     print(f"    Successfully mapped {len(model_indices)} model channels to LSL indices.")
-    # 'model_indices' is now the list of correct indices to pick, e.g., [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
-    # (assuming they are in order, but it works even if they aren't)
     
     if len(model_indices) != n_channels:
          raise RuntimeError(f"FATAL: Logic error. Mapped {len(model_indices)} indices, but model expects {n_channels}.")
@@ -264,19 +279,59 @@ def main_bci_live():
                 # Pass the *re-referenced* data to the filter
                 chunk_data_notched = notch_filter.apply(chunk_data_ref)
 
-                # ** 4. APPLY CAUSAL ICA (THE "KEY") **
-                cleaned_chunk = chunk_data_notched
+                # ... (Previous steps 1, 2, 3 remain the same) ...
+
+                # ** 4. APPLY CAUSAL ICA (ROBUST VERSION) **
+                cleaned_chunk = chunk_data_notched.copy() # Default to notched data
+                
                 if run_ica:
-                    # This will now be (N_comps, 19) @ (19, N_samples) -> SUCCESS
-                    # And it's operating on re-referenced data, as it was trained to.
-                    unmixed_data = ica_unmixing @ chunk_data_notched 
-                    unmixed_data[ica_exclude, :] = 0
-                    cleaned_chunk = ica_mixing @ unmixed_data
+                    # Check if ICA dimensions match our data
+                    n_ica_in = ica_unmixing.shape[1]
+                    n_data_in = chunk_data_notched.shape[0]
+
+                    if n_ica_in == n_data_in:
+                        # Dimensions match perfectly
+                        unmixed_data = ica_unmixing @ chunk_data_notched 
+                        unmixed_data[ica_exclude, :] = 0
+                        cleaned_chunk = ica_mixing @ unmixed_data
+                    
+                    else:
+                        # --- MISMATCH FIX: 19 vs 18 ---
+                        # We need to find which channels the ICA actually wants.
+                        # MNE ICA objects usually store 'ch_names'.
+                        if hasattr(ica_obj, 'ch_names') and ica_obj.ch_names:
+                            ica_names = ica_obj.ch_names
+                            
+                            # Find the indices of the ICA channels in our 19-channel list
+                            # 'model_channels' is our master list of 19 names
+                            try:
+                                ica_indices = [model_channels.index(ch) for ch in ica_names]
+                                
+                                # 1. Extract only the 18 channels ICA knows
+                                sub_data = chunk_data_notched[ica_indices, :]
+                                
+                                # 2. Clean them
+                                unmixed = ica_unmixing @ sub_data
+                                unmixed[ica_exclude, :] = 0
+                                cleaned_sub = ica_mixing @ unmixed
+                                
+                                # 3. Put them back into the main chunk
+                                # (The 19th channel that ICA didn't know remains as 'notched' only)
+                                cleaned_chunk[ica_indices, :] = cleaned_sub
+                                
+                            except ValueError as e:
+                                # This happens if ICA wants a channel name we don't have
+                                print(f"⚠️ ICA Name Mismatch: {e}")
+                                # Fallback: Skip ICA to prevent crash
+                                cleaned_chunk = chunk_data_notched
+                        else:
+                            print(f"⚠️ ICA Shape Mismatch ({n_ica_in} vs {n_data_in}) and no ch_names found. Skipping ICA.")
+                            cleaned_chunk = chunk_data_notched
 
                 # ** 5. APPEND TO BUFFER **
                 eeg_buffer = np.concatenate([eeg_buffer, cleaned_chunk], axis=1)
-                
-                # --- *** END OF FIX *** ---
+
+                # ... (Rest of loop remains the same) ...
 
             # --- Check Prediction Interval ---
             current_time = time.time()
