@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FBCSP-LDA BCI Pipeline — Visual Audit Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bg2: #13161e;
+    --bg3: #1a1e28;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --text2: #8b90a0;
+    --text3: #555a6a;
+    --accent: #4f9cf9;
+    --accent2: #7c6af7;
+    --green: #3dd68c;
+    --orange: #f59e42;
+    --red: #f06b6b;
+    --teal: #2ec4b6;
+    --purple: #a78bfa;
+    --yellow: #fbbf24;
+    --font: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo-group { display: flex; flex-direction: column; gap: 4px; }
+  .logo-tag {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .badge-blue { background: rgba(79,156,249,0.15); color: var(--accent); border: 1px solid rgba(79,156,249,0.25); }
+  .badge-green { background: rgba(61,214,140,0.12); color: var(--green); border: 1px solid rgba(61,214,140,0.2); }
+  .badge-purple { background: rgba(124,106,247,0.15); color: var(--purple); border: 1px solid rgba(124,106,247,0.25); }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1280px; margin: 0 auto; padding: 32px 40px; }
+
+  /* ── SECTION NAV ── */
+  .section-nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 32px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .section-nav::-webkit-scrollbar { display: none; }
+  .nav-btn {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .nav-btn:hover { background: var(--bg3); color: var(--text); }
+  .nav-btn.active { background: var(--accent); color: #fff; }
+  .nav-btn .num {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  /* ── PANELS ── */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── GRID SYSTEMS ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text2);
+    font-weight: 600;
+  }
+  .card-big-num {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .card-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  /* ── STAT METRIC CARDS ── */
+  .metric-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .metric-value { font-size: 22px; font-weight: 700; line-height: 1; }
+  .metric-unit { font-size: 13px; font-weight: 400; color: var(--text2); margin-left: 4px; }
+  .metric-trend { font-size: 12px; margin-top: 6px; }
+  .trend-up { color: var(--green); }
+  .trend-down { color: var(--red); }
+  .trend-neutral { color: var(--text2); }
+
+  /* ── CHART CONTAINERS ── */
+  .chart-wrap { position: relative; }
+  .chart-wrap canvas { max-height: 280px; }
+
+  /* ── CHANNEL GRID (topo-style) ── */
+  .topo-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    padding: 16px;
+    background: var(--bg3);
+    border-radius: 10px;
+  }
+  .ch-cell {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+  .ch-cell:hover { transform: scale(1.08); z-index: 10; }
+  .ch-cell .ch-name { font-size: 9px; letter-spacing: 0; }
+  .ch-cell .ch-val { font-size: 11px; font-weight: 700; }
+
+  /* ── FILTER BANDS TABLE ── */
+  .band-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--bg3);
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .band-row:hover { background: rgba(79,156,249,0.08); }
+  .band-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .band-label { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; }
+  .band-hz { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+  .band-bar-wrap { width: 120px; height: 6px; background: var(--bg); border-radius: 3px; }
+  .band-bar { height: 100%; border-radius: 3px; }
+
+  /* ── PIPELINE FLOW ── */
+  .pipeline-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding: 20px 0;
+    scrollbar-width: none;
+  }
+  .pipeline-flow::-webkit-scrollbar { display: none; }
+  .flow-node {
+    flex-shrink: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+    min-width: 120px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .flow-node:hover { border-color: var(--accent); background: rgba(79,156,249,0.05); }
+  .flow-node.active-node { border-color: var(--accent); background: rgba(79,156,249,0.1); }
+  .flow-node .fn-icon { font-size: 20px; margin-bottom: 6px; }
+  .flow-node .fn-label { font-size: 11px; font-weight: 600; color: var(--text); }
+  .flow-node .fn-sub { font-size: 10px; color: var(--text2); margin-top: 2px; }
+  .flow-arrow {
+    flex-shrink: 0;
+    width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    font-size: 18px;
+  }
+
+  /* ── STATUS TABLE ── */
+  .check-table { width: 100%; border-collapse: collapse; }
+  .check-table th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text3);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .check-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .check-table tr:last-child td { border-bottom: none; }
+  .check-icon { font-size: 14px; }
+  .check-ok { color: var(--green); }
+  .check-warn { color: var(--orange); }
+  .check-err { color: var(--red); }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+  .section-desc {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 24px;
+    line-height: 1.6;
+    max-width: 700px;
+  }
+
+  /* ── HEATMAP ── */
+  .heatmap-wrap {
+    display: grid;
+    gap: 3px;
+    padding: 12px;
+    background: var(--bg3);
+    border-radius: 10px;
+  }
+  .hm-cell {
+    height: 32px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .hm-cell:hover { transform: scale(1.04); }
+
+  /* ── CODE BLOCK ── */
+  .code-block {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    overflow-x: auto;
+    line-height: 1.7;
+  }
+  .code-block .kw { color: var(--purple); }
+  .code-block .fn { color: var(--accent); }
+  .code-block .str { color: var(--green); }
+  .code-block .cm { color: var(--text3); }
+  .code-block .num { color: var(--orange); }
+
+  /* ── COVARIANCE ELLIPSE SVG ── */
+  svg.cov-plot { width: 100%; height: auto; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    header { padding: 16px 20px; }
+    .container { padding: 20px; }
+    header h1 { font-size: 15px; }
+  }
+
+  /* ── TABS within sections ── */
+  .inner-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .inner-tab {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    font-family: var(--font);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .inner-tab.active { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+
+  /* ── PROBABILITY METER ── */
+  .prob-meter {
+    position: relative;
+    height: 20px;
+    background: var(--bg3);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 6px 0;
+  }
+  .prob-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.4s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.9);
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-group">
+    <div class="logo-tag">BCI Pipeline Audit</div>
+    <h1>Geometric Visualization — Asynchronous FBCSP-LDA Pipeline</h1>
+  </div>
+  <div class="header-meta">
+    <span class="badge badge-blue">Subject s11</span>
+    <span class="badge badge-green">19 ch · 160 Hz</span>
+    <span class="badge badge-purple">Left vs Right MI</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- NAV -->
+  <nav class="section-nav" id="navBar">
+    <button class="nav-btn active" onclick="showPanel(0)" data-i="0"><span class="num">1</span> Raw Signal</button>
+    <button class="nav-btn" onclick="showPanel(1)" data-i="1"><span class="num">2</span> Channel Map</button>
+    <button class="nav-btn" onclick="showPanel(2)" data-i="2"><span class="num">3</span> Ref &amp; Notch</button>
+    <button class="nav-btn" onclick="showPanel(3)" data-i="3"><span class="num">4</span> Epochs</button>
+    <button class="nav-btn" onclick="showPanel(4)" data-i="4"><span class="num">5</span> Amplitude Gate</button>
+    <button class="nav-btn" onclick="showPanel(5)" data-i="5"><span class="num">6</span> Band Decomp</button>
+    <button class="nav-btn" onclick="showPanel(6)" data-i="6"><span class="num">7</span> CSP Filters</button>
+    <button class="nav-btn" onclick="showPanel(7)" data-i="7"><span class="num">8</span> Feature Space</button>
+    <button class="nav-btn" onclick="showPanel(8)" data-i="8"><span class="num">9</span> LDA Boundary</button>
+    <button class="nav-btn" onclick="showPanel(9)" data-i="9"><span class="num">10</span> Summary</button>
+    <button class="nav-btn" onclick="showPanel(10)" data-i="10"><span class="num">★</span> Upload Results</button>
+  </nav>
+
+  <!-- ── PANEL 0: RAW SIGNAL ── -->
+  <div class="panel active" id="panel-0">
+    <div class="section-title">Raw EEG Signal</div>
+    <div class="section-desc">19-channel EEG before any preprocessing. The PSD should show a 50 Hz mains spike and 1/f roll-off. Motor cortex channels (C3, Cz, C4) are highlighted.</div>
+
+    <div class="grid-4" style="margin-bottom:20px">
+      <div class="metric-card">
+        <div class="metric-label">Sample Rate</div>
+        <div class="metric-value" style="color:var(--accent)">160<span class="metric-unit">Hz</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Channels</div>
+        <div class="metric-value" style="color:var(--purple)">19<span class="metric-unit">EEG</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Expected σ (raw)</div>
+        <div class="metric-value" style="color:var(--orange)">30–80<span class="metric-unit">µV</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">50Hz Spike</div>
+        <div class="metric-value" style="color:var(--red)">Present<span class="metric-unit">→ notch</span></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Simulated 10-sec EEG trace (C3, Cz, C4, Fp1)</div>
+          <span class="badge badge-blue">Raw · No preprocessing</span>
+        </div>
+        <div class="chart-wrap"><canvas id="rawChart"></canvas></div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text3)">
+          ✦ Paste your actual σ values from s1_raw_signal.png into the Upload Results tab
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Power Spectral Density</div>
+          <span class="badge badge-purple">1–80 Hz, Welch</span>
+        </div>
+        <div class="chart-wrap"><canvas id="psdChart"></canvas></div>
+        <div style="margin-top:12px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px">What to look for:</div>
+          <div style="font-size:12px;color:var(--text2)">• 50 Hz spike → confirms mains interference (good, notch will fix it)<br>• 1/f roll-off → confirms physiological signal<br>• Alpha peak at 8–12 Hz → confirms not pure noise</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 1: CHANNEL MAPPING ── -->
+  <div class="panel" id="panel-1">
+    <div class="section-title">Channel Mapping</div>
+    <div class="section-desc">Raw EDF files use vendor-prefixed names like "EEG Fp1-Ref". These must be remapped to standard 10-20 labels before MNE can apply the montage.</div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Rename map (21 → 19 channels)</div>
+          <span class="badge badge-green">A1/A2 dropped</span>
+        </div>
+        <div style="max-height:320px;overflow-y:auto">
+          <table class="check-table">
+            <thead><tr><th>Raw name</th><th>Mapped to</th><th>Used in model</th></tr></thead>
+            <tbody id="channelTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">10-20 scalp layout — model channels</div>
+        </div>
+        <div class="topo-grid" id="topoGrid" style="grid-template-columns:repeat(7,1fr)"></div>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;font-size:11px">
+          <span>🟢 Motor cortex (C3/Cz/C4)</span>
+          <span style="color:var(--accent)">🔵 In model</span>
+          <span style="color:var(--text3)">⬜ Not included</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <div class="card-header"><div class="card-title">Channel availability check</div></div>
+      <div class="grid-3">
+        <div class="metric-card">
+          <div class="metric-label">Model channels found</div>
+          <div class="metric-value" style="color:var(--green)">19<span class="metric-unit">/ 19</span></div>
+          <div class="metric-trend trend-up">✓ All present</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Extra channels dropped</div>
+          <div class="metric-value" style="color:var(--orange)">2<span class="metric-unit">ch</span></div>
+          <div class="metric-trend trend-neutral">A1, A2 (reference ears)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Missing from model</div>
+          <div class="metric-value" style="color:var(--green)">0<span class="metric-unit">ch</span></div>
+          <div class="metric-trend trend-up">✓ No gaps</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 2: REF & NOTCH ── -->
+  <div class="panel" id="panel-2">
+    <div class="section-title">Average Reference + Notch Filter</div>
+    <div class="section-desc">Two preprocessing steps applied sequentially. Average reference removes global scalp drift; 50 Hz notch suppresses mains contamination. Together they should improve SNR without distorting the motor rhythm bands.</div>
+
+    <div class="grid-4" style="margin-bottom:20px">
+      <div class="metric-card">
+        <div class="metric-label">Raw σ</div>
+        <div class="metric-value" id="rawSigma" style="color:var(--orange)">~50<span class="metric-unit">µV</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">After avg ref σ</div>
+        <div class="metric-value" id="refSigma" style="color:var(--orange)">~35<span class="metric-unit">µV</span></div>
+        <div class="metric-trend trend-up">↓ expected drop</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">After notch σ</div>
+        <div class="metric-value" id="notchSigma" style="color:var(--green)">~33<span class="metric-unit">µV</span></div>
+        <div class="metric-trend trend-neutral">Minimal Δ expected</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">50 Hz suppression</div>
+        <div class="metric-value" style="color:var(--green)">~25<span class="metric-unit">dB</span></div>
+        <div class="metric-trend trend-up">✓ Good if &gt;20 dB</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">PSD at each preprocessing step</div></div>
+        <div class="chart-wrap"><canvas id="refChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Preprocessing verification checklist</div></div>
+        <table class="check-table">
+          <tbody>
+            <tr><td><span class="check-icon check-ok">✓</span></td><td>50 Hz notch applied (IIR, forward phase, causal)</td><td class="badge badge-green" style="padding:2px 8px;font-size:10px">Causal</td></tr>
+            <tr><td><span class="check-icon check-ok">✓</span></td><td>Average reference set (no projection)</td><td class="badge badge-blue" style="padding:2px 8px;font-size:10px">Linked</td></tr>
+            <tr><td><span class="check-icon check-ok">✓</span></td><td>Resampled to 160 Hz if needed</td><td class="badge badge-green" style="padding:2px 8px;font-size:10px">160 Hz</td></tr>
+            <tr><td><span class="check-icon check-warn">⚠</span></td><td>IIR phase delay (forward causal) — check epoch tmin offset</td><td class="badge badge-purple" style="padding:2px 8px;font-size:10px">Review</td></tr>
+            <tr><td><span class="check-icon check-ok">✓</span></td><td>A1/A2 dropped before reference</td><td class="badge badge-green" style="padding:2px 8px;font-size:10px">Done</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:16px;padding:12px;background:rgba(245,158,66,0.08);border:1px solid rgba(245,158,66,0.2);border-radius:8px;font-size:12px;color:var(--orange)">
+          <b>⚠ Forward IIR caveat:</b> The causal Butterworth filter introduces phase delay (~3 samples at 160 Hz for order 4). Your TMIN=−0.5s window provides buffer. Verify your CSP window (0–2s) isn't capturing the pre-stimulus artifact.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 3: EPOCHS ── -->
+  <div class="panel" id="panel-3">
+    <div class="section-title">Epoch Overview</div>
+    <div class="section-desc">Epochs are constructed for three classes: REST (fixed-length from rest file), INTENT (any left/right MI onset), and directional LEFT/RIGHT. The event timeline shows class balance.</div>
+
+    <div class="grid-4" style="margin-bottom:20px">
+      <div class="metric-card">
+        <div class="metric-label">Rest epochs</div>
+        <div class="metric-value" style="color:var(--accent)">—<span class="metric-unit">trials</span></div>
+        <div class="metric-trend trend-neutral">3.5 s windows</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Intent epochs</div>
+        <div class="metric-value" style="color:var(--teal)">—<span class="metric-unit">trials</span></div>
+        <div class="metric-trend trend-neutral">L + R combined</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Left MI</div>
+        <div class="metric-value" style="color:var(--green)">—<span class="metric-unit">trials</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Right MI</div>
+        <div class="metric-value" style="color:var(--red)">—<span class="metric-unit">trials</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Epoch parameters</div>
+        <span class="badge badge-purple">−0.5 to +3.0 s</span>
+      </div>
+      <div class="grid-2">
+        <div>
+          <div class="code-block">
+<span class="cm"># Epoch window</span>
+TMIN = <span class="num">-0.5</span>   <span class="cm"># 500 ms pre-stimulus baseline</span>
+TMAX = <span class="num">3.0</span>    <span class="cm"># 3 s post-onset</span>
+
+<span class="cm"># CSP feature extraction window</span>
+FEATURE_TMIN = <span class="num">0.0</span>   <span class="cm"># onset</span>
+FEATURE_TMAX = <span class="num">2.0</span>   <span class="cm"># 2 s MI window</span>
+
+<span class="cm"># Epoch duration for REST</span>
+EPOCH_DURATION_REST = <span class="num">3.5</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Epoch design verification</div>
+          <table class="check-table">
+            <tbody>
+              <tr><td><span class="check-icon check-ok">✓</span></td><td>No baseline correction (CSP uses raw log-variance)</td></tr>
+              <tr><td><span class="check-icon check-ok">✓</span></td><td>reject=None — manual gate in Section 5</td></tr>
+              <tr><td><span class="check-icon check-warn">⚠</span></td><td>REST epochs from fixed-length events — check overlap with MI onset</td></tr>
+              <tr><td><span class="check-icon check-ok">✓</span></td><td>Class labels (LEFT=1, RIGHT=2) consistent with Stage 2 model</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 4: AMPLITUDE GATE ── -->
+  <div class="panel" id="panel-4">
+    <div class="section-title">Amplitude Gate</div>
+    <div class="section-desc">Peak-to-peak amplitude distribution per channel. The gate rejects epochs with P2P &gt; threshold µV. This replaces MNE's automated rejection and is critical for removing blink/muscle artifacts.</div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><div class="card-title">Channel P2P distribution (simulated reference)</div></div>
+      <div class="chart-wrap"><canvas id="ampChart"></canvas></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Expected channel patterns</div></div>
+        <div style="font-size:12px;color:var(--text2);line-height:2">
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>Fp1, Fp2</span><span style="color:var(--red)">High P2P — blink prone (&gt;100 µV)</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>C3, Cz, C4</span><span style="color:var(--green)">Moderate (&lt;80 µV ideally)</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>T7, T8</span><span style="color:var(--orange)">Muscle artifact risk</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>O1, O2</span><span style="color:var(--text2)">Eye movement artifact</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0"><span>P3, Pz, P4</span><span style="color:var(--text2)">Usually clean</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Rejection rate slider (estimate)</div></div>
+        <div style="margin:16px 0">
+          <label style="font-size:12px;color:var(--text2)">Threshold: <span id="threshLabel">150 µV</span></label>
+          <input type="range" min="50" max="300" value="150" id="threshSlider" style="width:100%;margin:12px 0" oninput="updateThresh(this.value)">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
+            <span>50 µV (strict)</span><span>300 µV (permissive)</span>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:14px;margin-top:12px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Estimated rejection rate:</div>
+          <div style="font-size:24px;font-weight:700;color:var(--accent)" id="rejRate">~15%</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Target: &lt;30% for sufficient trial count</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 5: BAND DECOMPOSITION ── -->
+  <div class="panel" id="panel-5">
+    <div class="section-title">FBCSP Band Decomposition</div>
+    <div class="section-desc">6 overlapping bandpass filters spanning the sensorimotor rhythm range (8–30 Hz). Each filter is a causal IIR Butterworth order 4. The overlap between bands (e.g. 10–14 and 12–16) improves spatial robustness.</div>
+
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Filter bank — 6 FBCSP bands</div></div>
+        <div id="bandsList"></div>
+        <div style="margin-top:16px;padding:12px;background:rgba(79,156,249,0.05);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2)">
+          <b style="color:var(--accent)">Why these bands?</b> They target alpha (8–12), low-beta (12–16), mid-beta (14–20), and upper-beta/gamma (18–30). The overlapping design means each ERD dip is captured by multiple filters.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">3D frequency-power landscape concept</div></div>
+        <svg viewBox="0 0 400 280" width="100%" style="background:var(--bg3);border-radius:8px">
+          <!-- Axes -->
+          <line x1="60" y1="220" x2="360" y2="220" stroke="var(--border2)" stroke-width="1"/>
+          <line x1="60" y1="220" x2="60" y2="40" stroke="var(--border2)" stroke-width="1"/>
+          <line x1="60" y1="220" x2="20" y2="250" stroke="var(--border2)" stroke-width="1" stroke-dasharray="4 4"/>
+          <text x="370" y="224" fill="#555a6a" font-size="10" font-family="system-ui">Freq</text>
+          <text x="62" y="35" fill="#555a6a" font-size="10" font-family="system-ui">Power</text>
+          <text x="10" y="262" fill="#555a6a" font-size="10" font-family="system-ui">Time</text>
+          <!-- REST surface -->
+          <polyline points="60,160 100,140 140,120 170,100 200,130 230,145 260,155 300,150 340,160" fill="rgba(79,156,249,0.15)" stroke="#4f9cf9" stroke-width="1.5" fill-opacity="0.6"/>
+          <!-- MI surface (ERD dip) -->
+          <polyline points="60,160 100,155 140,165 170,190 200,200 230,175 260,160 300,155 340,160" fill="rgba(61,214,140,0.12)" stroke="#3dd68c" stroke-width="1.5" fill-opacity="0.5" transform="translate(0,10)"/>
+          <!-- Band markers -->
+          <line x1="130" y1="30" x2="130" y2="220" stroke="rgba(167,139,250,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+          <line x1="170" y1="30" x2="170" y2="220" stroke="rgba(167,139,250,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="145" y="28" fill="#a78bfa" font-size="9" text-anchor="middle" font-family="system-ui">α</text>
+          <line x1="200" y1="30" x2="200" y2="220" stroke="rgba(245,158,66,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+          <line x1="250" y1="30" x2="250" y2="220" stroke="rgba(245,158,66,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="225" y="28" fill="#f59e42" font-size="9" text-anchor="middle" font-family="system-ui">β</text>
+          <!-- ERD annotation -->
+          <text x="185" y="210" fill="#3dd68c" font-size="9" text-anchor="middle" font-family="system-ui">ERD dip</text>
+          <!-- Legend -->
+          <rect x="250" y="40" width="10" height="3" fill="#4f9cf9"/>
+          <text x="264" y="44" fill="#8b90a0" font-size="9" font-family="system-ui">REST</text>
+          <rect x="250" y="54" width="10" height="3" fill="#3dd68c"/>
+          <text x="264" y="58" fill="#8b90a0" font-size="9" font-family="system-ui">MI</text>
+        </svg>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">Schematic: Event-Related Desynchronization (ERD) in alpha/beta during MI</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Band power ratio — REST vs MI (expected pattern)</div></div>
+      <div class="chart-wrap"><canvas id="bandPowerChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 6: CSP FILTERS ── -->
+  <div class="panel" id="panel-6">
+    <div class="section-title">CSP Spatial Filters</div>
+    <div class="section-desc">Common Spatial Patterns finds projection vectors maximizing the variance ratio between LEFT and RIGHT MI classes. The first and last CSP components should maximally separate the classes. Topomaps show the spatial distribution — C3 activity for left MI, C4 for right MI.</div>
+
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">CSP objective (mathematical)</div>
+        </div>
+        <div style="text-align:center;padding:20px;background:var(--bg3);border-radius:8px;margin-bottom:12px">
+          <div style="font-size:15px;color:var(--text);font-family:Georgia,serif;letter-spacing:1px">max<sub>w</sub>  w<sup>T</sup>Σ₁w / w<sup>T</sup>Σ₂w</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:8px">Generalized eigenvalue problem · Σ = covariance matrix</div>
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8">
+          <b style="color:var(--text)">Geometric interpretation:</b> CSP finds the axis along which LEFT and RIGHT covariance ellipsoids are maximally separated. This is the <span style="color:var(--purple)">covariance geometry</span> visualization the PDF describes.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Covariance ellipsoid geometry (3D concept)</div>
+        </div>
+        <svg viewBox="0 0 380 260" width="100%" style="background:var(--bg3);border-radius:8px">
+          <!-- Coordinate axes -->
+          <line x1="40" y1="200" x2="340" y2="200" stroke="var(--border2)" stroke-width="0.5"/>
+          <line x1="190" y1="30" x2="190" y2="230" stroke="var(--border2)" stroke-width="0.5"/>
+          <line x1="40" y1="200" x2="10" y2="230" stroke="var(--border2)" stroke-width="0.5" stroke-dasharray="3 3"/>
+          <!-- LEFT ellipse -->
+          <ellipse cx="150" cy="130" rx="60" ry="35" fill="rgba(61,214,140,0.1)" stroke="#3dd68c" stroke-width="1.5" transform="rotate(-20 150 130)"/>
+          <text x="100" y="105" fill="#3dd68c" font-size="10" font-family="system-ui">LEFT Σ</text>
+          <!-- RIGHT ellipse -->
+          <ellipse cx="240" cy="140" rx="55" ry="30" fill="rgba(240,107,107,0.1)" stroke="#f06b6b" stroke-width="1.5" transform="rotate(15 240 140)"/>
+          <text x="255" y="125" fill="#f06b6b" font-size="10" font-family="system-ui">RIGHT Σ</text>
+          <!-- CSP projection vector -->
+          <line x1="80" y1="220" x2="310" y2="60" stroke="#a78bfa" stroke-width="2" marker-end="url(#arr2)"/>
+          <defs>
+            <marker id="arr2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="#a78bfa"/>
+            </marker>
+          </defs>
+          <text x="295" y="55" fill="#a78bfa" font-size="10" font-family="system-ui">w₁ (CSP)</text>
+          <!-- Labels -->
+          <text x="350" y="204" fill="#555a6a" font-size="9" font-family="system-ui">Ch₁</text>
+          <text x="192" y="26" fill="#555a6a" font-size="9" font-family="system-ui">Ch₂</text>
+          <text x="5" y="242" fill="#555a6a" font-size="9" font-family="system-ui">Ch₃</text>
+          <text x="120" y="250" fill="#8b90a0" font-size="9" text-anchor="middle" font-family="system-ui">CSP finds w maximizing Σ₁/Σ₂ ratio</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">CSP spatial pattern — expected scalp distribution</div>
+        <span class="badge badge-purple">4 components per band</span>
+      </div>
+      <div class="grid-2">
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px;font-weight:600">What CSP topomaps should show:</div>
+          <table class="check-table">
+            <tbody>
+              <tr>
+                <td><span style="display:inline-block;width:12px;height:12px;background:#3dd68c;border-radius:50%"></span></td>
+                <td>CSP₁ (max LEFT variance): C4 activation, C3 suppression</td>
+                <td><span class="check-icon check-ok">✓ target</span></td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block;width:12px;height:12px;background:#f06b6b;border-radius:50%"></span></td>
+                <td>CSP₄ (max RIGHT variance): C3 activation, C4 suppression</td>
+                <td><span class="check-icon check-ok">✓ target</span></td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block;width:12px;height:12px;background:#f59e42;border-radius:50%"></span></td>
+                <td>Patterns load on Fp1/Fp2 → eye artifact leak</td>
+                <td><span class="check-icon check-err">✗ problem</span></td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block;width:12px;height:12px;background:#f59e42;border-radius:50%"></span></td>
+                <td>Patterns load on O1/O2 → visual artifact</td>
+                <td><span class="check-icon check-err">✗ problem</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px;font-weight:600">Log-variance ratio (expected per band):</div>
+          <div id="cspVarBars"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 7: FEATURE SPACE ── -->
+  <div class="panel" id="panel-7">
+    <div class="section-title">Feature Space (PCA scatter)</div>
+    <div class="section-desc">FBCSP extracts log-variance features from each filtered band × CSP component. These are concatenated into a feature vector and projected to 2D with PCA for visualization. Well-separated clusters confirm the pipeline is working.</div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Stage 1: REST vs INTENT</div>
+          <span class="badge badge-blue">PCA 2D projection</span>
+        </div>
+        <div class="chart-wrap"><canvas id="pca1Chart"></canvas></div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text2)">
+          Good separation = clean BCI. The two clusters should be distinct. Overlap predicts misclassification.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Stage 2: LEFT vs RIGHT MI</div>
+          <span class="badge badge-purple">PCA 2D projection</span>
+        </div>
+        <div class="chart-wrap"><canvas id="pca2Chart"></canvas></div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text2)">
+          L/R separation is harder than REST/INTENT. Some overlap is expected. Fisher's LDA will draw the optimal boundary.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 8: LDA BOUNDARY ── -->
+  <div class="panel" id="panel-8">
+    <div class="section-title">LDA Decision Boundary</div>
+    <div class="section-desc">Linear Discriminant Analysis projects features onto the axis maximizing between-class / within-class variance ratio. The decision boundary is a hyperplane where posterior P(class₁) = P(class₂) = 0.5. In 2D this is a line.</div>
+
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Stage 1 — REST vs INTENT boundary</div></div>
+        <div class="chart-wrap"><canvas id="lda1Chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Stage 2 — LEFT vs RIGHT boundary</div></div>
+        <div class="chart-wrap"><canvas id="lda2Chart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Probability meter (live simulation)</div></div>
+      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--text2)">LD1 score: <span id="ldScoreLabel">0.0</span></label>
+        <input type="range" min="-4" max="4" value="0" step="0.1" id="ldSlider" style="width:200px" oninput="updateProb(this.value)">
+      </div>
+      <div style="margin-bottom:8px;font-size:12px;color:var(--text2)">P(Left MI)</div>
+      <div class="prob-meter"><div class="prob-fill" id="probLeft" style="width:50%;background:var(--green)">50%</div></div>
+      <div style="margin:8px 0 4px;font-size:12px;color:var(--text2)">P(Right MI)</div>
+      <div class="prob-meter"><div class="prob-fill" id="probRight" style="width:50%;background:var(--red)">50%</div></div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text3)">Drag the slider to simulate classifier output at different feature space positions.</div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 9: SUMMARY ── -->
+  <div class="panel" id="panel-9">
+    <div class="section-title">Pipeline Summary — SNR at Each Stage</div>
+    <div class="section-desc">Signal statistics evolve through the pipeline. σ should drop after average reference, stabilize after notch, then narrow further after bandpass. In-band power concentration should peak at FBCSP bands.</div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><div class="card-title">Signal amplitude (σ) through pipeline stages</div></div>
+      <div class="chart-wrap"><canvas id="summaryChart"></canvas></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">In-band / total power ratio</div></div>
+        <div class="chart-wrap"><canvas id="ratioChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Pipeline health checklist</div></div>
+        <table class="check-table">
+          <thead><tr><th>Check</th><th>Expected</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>σ drop after avg ref</td><td>10–30%</td><td><span class="badge badge-green">To verify</span></td></tr>
+            <tr><td>Notch σ change</td><td>&lt;5%</td><td><span class="badge badge-green">To verify</span></td></tr>
+            <tr><td>Band power concentration</td><td>&gt;15% in-band</td><td><span class="badge badge-blue">To verify</span></td></tr>
+            <tr><td>CSP C3/C4 lateralization</td><td>Contralateral</td><td><span class="badge badge-purple">Key check</span></td></tr>
+            <tr><td>PCA cluster separation</td><td>Visible gap</td><td><span class="badge badge-purple">Key check</span></td></tr>
+            <tr><td>LDA accuracy (S1)</td><td>&gt;75%</td><td><span class="badge badge-blue">To verify</span></td></tr>
+            <tr><td>LDA accuracy (S2)</td><td>&gt;65%</td><td><span class="badge badge-blue">To verify</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 10: PIPELINE FIGURES ── -->
+  <div class="panel" id="panel-10">
+    <div class="section-title">Pipeline Figures</div>
+    <div class="section-desc">All 10 output figures generated by <span style="font-family:var(--mono);font-size:12px;color:var(--accent)">visualise_pipeline.py</span>. Place your PNGs in a <span style="font-family:var(--mono);font-size:12px;color:var(--accent)">figures/</span> folder next to this <span style="font-family:var(--mono);font-size:12px;color:var(--accent)">index.html</span> and they will load automatically.</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:20px">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 1 — Raw signal</div>
+          <span class="badge badge-blue" style="font-size:10px">s1_raw_signal.png</span>
+        </div>
+        <img src="figures/s1_raw_signal.png" alt="Section 1: Raw signal — traces and PSD"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s1_raw_signal.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 2 — Channel mapping</div>
+          <span class="badge badge-blue" style="font-size:10px">s2_channel_mapping.png</span>
+        </div>
+        <img src="figures/s2_channel_mapping.png" alt="Section 2: Channel mapping and availability"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s2_channel_mapping.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 3 — Reference &amp; notch</div>
+          <span class="badge badge-purple" style="font-size:10px">s3_ref_notch.png</span>
+        </div>
+        <img src="figures/s3_ref_notch.png" alt="Section 3: Average reference and notch filter"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s3_ref_notch.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 4 — Epoch overview</div>
+          <span class="badge badge-green" style="font-size:10px">s4_epoch_overview.png</span>
+        </div>
+        <img src="figures/s4_epoch_overview.png" alt="Section 4: Epoch overview and event timeline"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s4_epoch_overview.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 5 — Amplitude gate</div>
+          <span class="badge badge-blue" style="font-size:10px">s5_amplitude_gate.png</span>
+        </div>
+        <img src="figures/s5_amplitude_gate.png" alt="Section 5: Amplitude gate peak-to-peak distribution"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s5_amplitude_gate.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 6 — Band decomposition</div>
+          <span class="badge badge-purple" style="font-size:10px">s6_band_decomposition.png</span>
+        </div>
+        <img src="figures/s6_band_decomposition.png" alt="Section 6: FBCSP band decomposition"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s6_band_decomposition.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 7 — CSP spatial filters</div>
+          <span class="badge badge-green" style="font-size:10px">s7_csp_filters.png</span>
+        </div>
+        <img src="figures/s7_csp_filters.png" alt="Section 7: CSP spatial filters and topomaps"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s7_csp_filters.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 8 — Feature space</div>
+          <span class="badge badge-blue" style="font-size:10px">s8_feature_space.png</span>
+        </div>
+        <img src="figures/s8_feature_space.png" alt="Section 8: 2D PCA scatter of FBCSP features"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s8_feature_space.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 9 — LDA decision boundary</div>
+          <span class="badge badge-purple" style="font-size:10px">s9_lda_boundary.png</span>
+        </div>
+        <img src="figures/s9_lda_boundary.png" alt="Section 9: LDA projection and decision boundary"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s9_lda_boundary.png not found</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Section 10 — Pipeline summary</div>
+          <span class="badge badge-green" style="font-size:10px">s10_pipeline_summary.png</span>
+        </div>
+        <img src="figures/s10_pipeline_summary.png" alt="Section 10: Pipeline signal SNR summary"
+             style="width:100%;border-radius:6px;background:var(--bg3)"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:120px;background:var(--bg3);border-radius:6px;flex-direction:column;gap:8px">
+          <span style="font-size:22px;opacity:0.3">🖼</span>
+          <span style="font-size:11px;color:var(--text3)">figures/s10_pipeline_summary.png not found</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card" style="margin-top:24px">
+      <div class="card-header"><div class="card-title">Folder structure</div></div>
+      <div class="code-block">
+BCI-Project/
+├── <span class="fn">index.html</span>          <span class="cm">&lt;-- this file</span>
+└── figures/
+    ├── <span class="str">s1_raw_signal.png</span>
+    ├── <span class="str">s2_channel_mapping.png</span>
+    ├── <span class="str">s3_ref_notch.png</span>
+    ├── <span class="str">s4_epoch_overview.png</span>
+    ├── <span class="str">s5_amplitude_gate.png</span>
+    ├── <span class="str">s6_band_decomposition.png</span>
+    ├── <span class="str">s7_csp_filters.png</span>
+    ├── <span class="str">s8_feature_space.png</span>
+    ├── <span class="str">s9_lda_boundary.png</span>
+    └── <span class="str">s10_pipeline_summary.png</span>
+      </div>
+      <div style="margin-top:12px;padding:12px;background:rgba(79,156,249,0.06);border:1px solid rgba(79,156,249,0.15);border-radius:8px;font-size:12px;color:var(--text2)">
+        <b style="color:var(--accent)">Note:</b> Your script saves figures with the subject prefix, e.g. <span style="font-family:var(--mono)">s11_pipeline_figs/s7_csp_filters.png</span>. Either copy them into <span style="font-family:var(--mono)">figures/</span> as-is, or rename the <code style="font-family:var(--mono);color:var(--accent)">FIGURE_DIR</code> variable in your Python script to point directly to a <span style="font-family:var(--mono)">figures/</span> folder at the repo root.
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── PANEL NAV ──────────────────────────────────────────────────────────────
+function showPanel(i) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-'+i).classList.add('active');
+  document.querySelector('[data-i="'+i+'"]').classList.add('active');
+}
+
+// ── CHANNEL DATA ────────────────────────────────────────────────────────────
+const CHANNEL_MAP = [
+  ['EEG Fp1-Ref','Fp1'],['EEG Fp2-Ref','Fp2'],
+  ['EEG F7-Ref','F7'],['EEG F3-Ref','F3'],['EEG Fz-Ref','Fz'],['EEG F4-Ref','F4'],['EEG F8-Ref','F8'],
+  ['EEG T3-Ref','T7'],['EEG C3-Ref','C3'],['EEG Cz-Ref','Cz'],['EEG C4-Ref','C4'],['EEG T4-Ref','T8'],
+  ['EEG T5-Ref','P7'],['EEG P3-Ref','P3'],['EEG Pz-Ref','Pz'],['EEG P4-Ref','P4'],['EEG T6-Ref','P8'],
+  ['EEG O1-Ref','O1'],['EEG O2-Ref','O2'],
+  ['EEG A1-Ref','A1 (dropped)'],['EEG A2-Ref','A2 (dropped)'],
+];
+
+// Populate channel table
+const ctb = document.getElementById('channelTableBody');
+CHANNEL_MAP.forEach(([raw,mapped]) => {
+  const isDropped = mapped.includes('dropped');
+  const isModel = !isDropped;
+  const row = `<tr>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${raw}</td>
+    <td style="font-weight:600;color:${isDropped?'var(--red)':'var(--text)'}">${mapped}</td>
+    <td>${isDropped?'<span class="badge" style="background:rgba(240,107,107,0.12);color:var(--red);border:1px solid rgba(240,107,107,0.2);font-size:10px">Dropped</span>':'<span class="badge badge-green" style="font-size:10px">✓ Used</span>'}</td>
+  </tr>`;
+  ctb.innerHTML += row;
+});
+
+// Topo grid (simplified 7-col layout for 10-20)
+const TOPO_LAYOUT = [
+  [null,'Fp1',null,null,null,'Fp2',null],
+  ['F7','F3',null,'Fz',null,'F4','F8'],
+  ['T7','C3',null,'Cz',null,'C4','T8'],
+  ['P7','P3',null,'Pz',null,'P4','P8'],
+  [null,'O1',null,null,null,'O2',null],
+];
+const MOTOR = ['C3','Cz','C4'];
+const tg = document.getElementById('topoGrid');
+tg.style.gridTemplateColumns = 'repeat(7,1fr)';
+TOPO_LAYOUT.forEach(row => {
+  row.forEach(ch => {
+    const cell = document.createElement('div');
+    cell.className = 'ch-cell';
+    if (ch) {
+      const isMotor = MOTOR.includes(ch);
+      cell.style.background = isMotor ? 'rgba(61,214,140,0.2)' : 'rgba(79,156,249,0.1)';
+      cell.style.border = isMotor ? '1px solid rgba(61,214,140,0.4)' : '1px solid var(--border)';
+      cell.style.color = isMotor ? 'var(--green)' : 'var(--text2)';
+      cell.innerHTML = `<div class="ch-val">${ch}</div>`;
+      cell.title = isMotor ? ch + ' — motor cortex' : ch;
+    } else {
+      cell.style.background = 'transparent';
+    }
+    tg.appendChild(cell);
+  });
+});
+
+// ── FILTER BANDS ────────────────────────────────────────────────────────────
+const BANDS = [
+  {label:'Band 1', hz:'8–12 Hz', color:'#4f9cf9', pct:85, name:'Lower alpha / mu'},
+  {label:'Band 2', hz:'10–14 Hz', color:'#7c6af7', pct:90, name:'Upper alpha / lower beta'},
+  {label:'Band 3', hz:'12–16 Hz', color:'#3dd68c', pct:75, name:'Low beta (SMR)'},
+  {label:'Band 4', hz:'14–20 Hz', color:'#f59e42', pct:70, name:'Mid beta'},
+  {label:'Band 5', hz:'18–26 Hz', color:'#f06b6b', pct:60, name:'High beta'},
+  {label:'Band 6', hz:'24–30 Hz', color:'#2ec4b6', pct:50, name:'Upper beta / low gamma'},
+];
+const bl = document.getElementById('bandsList');
+BANDS.forEach(b => {
+  bl.innerHTML += `<div class="band-row">
+    <div class="band-dot" style="background:${b.color}"></div>
+    <div>
+      <div class="band-label">${b.label} <span style="font-weight:400;color:var(--text3);font-size:10px">${b.name}</span></div>
+    </div>
+    <div class="band-hz">${b.hz}</div>
+    <div class="band-bar-wrap"><div class="band-bar" style="width:${b.pct}%;background:${b.color};opacity:0.7"></div></div>
+  </div>`;
+});
+
+// CSP var bars
+const cvb = document.getElementById('cspVarBars');
+BANDS.forEach((b,i) => {
+  cvb.innerHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <div style="width:50px;font-size:11px;color:var(--text3)">${b.hz}</div>
+    <div style="flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden">
+      <div style="height:100%;width:${60+i*5}%;background:${b.color};opacity:0.8;border-radius:4px"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);width:40px;text-align:right">${(1.2+i*0.15).toFixed(2)}</div>
+  </div>`;
+});
+
+// ── CHART.JS HELPERS ────────────────────────────────────────────────────────
+const GRID_OPT = {
+  color: 'rgba(255,255,255,0.05)',
+  borderColor: 'rgba(255,255,255,0.05)',
+};
+const TICK_OPT = { color: '#555a6a', font: { size: 10 } };
+
+function makeChart(id, type, labels, datasets, opts = {}) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  return new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { labels: { color: '#8b90a0', font: { size: 11 }, boxWidth: 12 } }, tooltip: { backgroundColor: '#1a1e28', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 } },
+      scales: {
+        x: { grid: GRID_OPT, ticks: TICK_OPT },
+        y: { grid: GRID_OPT, ticks: TICK_OPT },
+        ...opts.scales
+      },
+      ...opts.extra
+    }
+  });
+}
+
+// ── SECTION 1: Raw signal ────────────────────────────────────────────────────
+const timeLabels = Array.from({length:160}, (_,i)=>(i/160*10).toFixed(1));
+function fakeEEG(amp, freq, noise) {
+  return timeLabels.map((_,i) => amp * Math.sin(2*Math.PI*freq*(i/160)) + (Math.random()-0.5)*noise*2);
+}
+makeChart('rawChart','line', timeLabels,
+  [{label:'C3',data:fakeEEG(20,10,15),borderColor:'#3dd68c',borderWidth:1,pointRadius:0,tension:0.4},
+   {label:'Cz',data:fakeEEG(18,11,18),borderColor:'#4f9cf9',borderWidth:1,pointRadius:0,tension:0.4},
+   {label:'C4',data:fakeEEG(22,9,16),borderColor:'#f06b6b',borderWidth:1,pointRadius:0,tension:0.4},
+   {label:'Fp1',data:fakeEEG(45,1,40),borderColor:'#f59e42',borderWidth:0.8,pointRadius:0,tension:0.3}],
+  {extra:{animation:false}});
+
+const freqLabs = Array.from({length:80},(_,i)=>i+1);
+const psdRest  = freqLabs.map(f => -20 - 20*Math.log10(f) + (f===50?15:0) + Math.random()*2);
+const psdMI    = freqLabs.map(f => -20 - 20*Math.log10(f) + (f===50?15:0) + (f>=8&&f<=30?-4:0) + Math.random()*2);
+makeChart('psdChart','line',freqLabs,
+  [{label:'REST (reference)',data:psdRest,borderColor:'#4f9cf9',borderWidth:1.5,pointRadius:0,tension:0.3},
+   {label:'MI',data:psdMI,borderColor:'#3dd68c',borderWidth:1.5,pointRadius:0,tension:0.3}],
+  {scales:{x:{title:{display:true,text:'Freq (Hz)',color:'#555a6a',font:{size:10}}},y:{title:{display:true,text:'Power (dB)',color:'#555a6a',font:{size:10}}}}});
+
+// ── SECTION 2: Ref & notch PSD ────────────────────────────────────────────
+const refPSD1 = freqLabs.map(f => -18 - 20*Math.log10(f) + (f===50?18:0));
+const refPSD2 = freqLabs.map(f => -22 - 20*Math.log10(f) + (f===50?18:0));
+const refPSD3 = freqLabs.map(f => -22 - 20*Math.log10(f) + (f===50?-5:0));
+makeChart('refChart','line',freqLabs,
+  [{label:'Raw (pick only)',data:refPSD1,borderColor:'#888',borderWidth:1.5,pointRadius:0,tension:0.3},
+   {label:'+ Avg reference',data:refPSD2,borderColor:'#a78bfa',borderWidth:1.5,pointRadius:0,tension:0.3},
+   {label:'+ Notch filter',data:refPSD3,borderColor:'#4f9cf9',borderWidth:1.5,pointRadius:0,tension:0.3}],
+  {scales:{x:{title:{display:true,text:'Freq (Hz)',color:'#555a6a',font:{size:10}}},y:{title:{display:true,text:'Power (dB)',color:'#555a6a',font:{size:10}}}}});
+
+// ── SECTION 4: Amplitude histogram ─────────────────────────────────────────
+const chNames = ['Fp1','Fp2','F7','F3','Fz','F4','F8','T7','C3','Cz','C4','T8','P7','P3','Pz','P4','P8','O1','O2'];
+const ampVals = [120,115,85,70,72,68,82,90,65,60,68,88,70,62,58,64,72,80,82];
+makeChart('ampChart','bar',chNames,
+  [{label:'P2P amplitude (µV)',data:ampVals,backgroundColor:ampVals.map(v=>v>100?'rgba(240,107,107,0.7)':v>80?'rgba(245,158,66,0.7)':'rgba(79,156,249,0.7)'),borderRadius:4}],
+  {extra:{animation:false}});
+
+// ── SECTION 5: Band power chart ─────────────────────────────────────────────
+const bandLabels = ['8–12','10–14','12–16','14–20','18–26','24–30'];
+makeChart('bandPowerChart','bar',bandLabels,
+  [{label:'REST power ratio',data:[0.18,0.16,0.14,0.13,0.11,0.09],backgroundColor:'rgba(79,156,249,0.6)',borderRadius:4},
+   {label:'MI power ratio',data:[0.13,0.11,0.10,0.12,0.13,0.10],backgroundColor:'rgba(61,214,140,0.6)',borderRadius:4}],
+  {extra:{animation:false,scales:{x:{title:{display:true,text:'Band (Hz)',color:'#555a6a'}},y:{title:{display:true,text:'In-band/total power',color:'#555a6a'}}}}});
+
+// ── SECTION 7+8: PCA / LDA scatter plots ──────────────────────────────────
+function randCluster(cx, cy, n, spread) {
+  return Array.from({length:n}, () => ({x: cx+(Math.random()-0.5)*spread, y: cy+(Math.random()-0.5)*spread*0.8}));
+}
+const scatterOpts = {
+  extra: { animation: false, scales: { x: { grid: GRID_OPT, ticks: TICK_OPT }, y: { grid: GRID_OPT, ticks: TICK_OPT } } }
+};
+makeChart('pca1Chart','scatter',null,
+  [{label:'REST',data:randCluster(-1.5,0.5,40,1.5),backgroundColor:'rgba(79,156,249,0.5)',pointRadius:4},
+   {label:'INTENT',data:randCluster(1.5,-0.5,40,1.5),backgroundColor:'rgba(245,158,66,0.5)',pointRadius:4}], scatterOpts);
+makeChart('pca2Chart','scatter',null,
+  [{label:'LEFT MI',data:randCluster(-1.0,0.3,30,1.8),backgroundColor:'rgba(61,214,140,0.5)',pointRadius:4},
+   {label:'RIGHT MI',data:randCluster(1.2,-0.4,30,1.8),backgroundColor:'rgba(240,107,107,0.5)',pointRadius:4}], scatterOpts);
+makeChart('lda1Chart','scatter',null,
+  [{label:'REST',data:randCluster(-2,0,40,1),backgroundColor:'rgba(79,156,249,0.5)',pointRadius:4},
+   {label:'INTENT',data:randCluster(2,0,40,1),backgroundColor:'rgba(245,158,66,0.5)',pointRadius:4}], scatterOpts);
+makeChart('lda2Chart','scatter',null,
+  [{label:'LEFT MI',data:randCluster(-1.8,0,30,1.2),backgroundColor:'rgba(61,214,140,0.5)',pointRadius:4},
+   {label:'RIGHT MI',data:randCluster(1.8,0,30,1.2),backgroundColor:'rgba(240,107,107,0.5)',pointRadius:4}], scatterOpts);
+
+// ── SECTION 9+10: Summary charts ─────────────────────────────────────────
+const stageLabels = ['Raw','+ Avg ref','+ Notch','8–12 Hz','10–14','12–16','14–20','18–26','24–30'];
+const sigmaVals   = [48,33,32,18,17,15,16,14,13];
+const ratioVals   = [0.08,0.09,0.10,0.82,0.85,0.88,0.87,0.86,0.84];
+makeChart('summaryChart','bar',stageLabels,
+  [{label:'Signal σ (µV)',data:sigmaVals,backgroundColor:['#888','#a78bfa','#4f9cf9','#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b'].map(c=>c+'cc'),borderRadius:4}],
+  {extra:{animation:false}});
+makeChart('ratioChart','bar',stageLabels,
+  [{label:'In-band/total power',data:ratioVals,backgroundColor:sigmaVals.map((_,i)=>i<3?'rgba(136,136,136,0.6)':'rgba(61,214,140,0.6)'),borderRadius:4}],
+  {extra:{animation:false,scales:{y:{max:1.0}}}});
+
+// ── INTERACTIVE CONTROLS ──────────────────────────────────────────────────
+function updateThresh(v) {
+  document.getElementById('threshLabel').textContent = v + ' µV';
+  const pct = Math.max(2, Math.round(50 - v/6));
+  document.getElementById('rejRate').textContent = '~' + pct + '%';
+}
+
+function updateProb(v) {
+  document.getElementById('ldScoreLabel').textContent = parseFloat(v).toFixed(1);
+  const pLeft = Math.round(1/(1+Math.exp(-v))*100);
+  const pRight = 100-pLeft;
+  document.getElementById('probLeft').style.width = pLeft+'%';
+  document.getElementById('probLeft').textContent = pLeft+'%';
+  document.getElementById('probRight').style.width = pRight+'%';
+  document.getElementById('probRight').textContent = pRight+'%';
+}
+
+
+</script>
+</body>
+</html>
